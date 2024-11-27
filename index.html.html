@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medição de Volume de Concreto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Medição de Volume de Concreto</h1>
+
+    <!-- Informações gerais -->
+    <div class="section">
+        <h2>Informações da Obra</h2>
+        <label>Nome da Obra:</label>
+        <input type="text" id="nome-obra" placeholder="Digite o nome da obra">
+        <label>Resistência do Concreto (Fck em MPa):</label>
+        <input type="text" id="fck-concreto" inputmode="decimal" placeholder="Digite a resistência do concreto (use vírgula como decimal)">
+    </div>
+
+    <!-- Lajes -->
+    <div class="section" id="lajes-section">
+        <h2>Lajes</h2>
+        <div id="lajes-container"></div>
+        <button onclick="addLaje()">Adicionar Conjunto de Lajes</button>
+    </div>
+
+    <!-- Vigas -->
+    <div class="section" id="vigas-section">
+        <h2>Vigas</h2>
+        <div id="vigas-container"></div>
+        <button onclick="addViga()">Adicionar Conjunto de Vigas</button>
+    </div>
+
+    <!-- Soma total -->
+    <div class="section">
+        <h2>Total</h2>
+        <div class="result" id="total-volume">Volume Total: 0.00 m³</div>
+        <button onclick="copyMemory()">Copiar Memória de Cálculo</button>
+    </div>
+
+    <script>
+        let totalVolume = 0;
+
+        function addLaje() {
+            const container = document.getElementById('lajes-container');
+            const lajeId = `laje-${container.children.length + 1}`;
+            const lajeDiv = document.createElement('div');
+            lajeDiv.classList.add('input-group');
+            lajeDiv.id = lajeId;
+            lajeDiv.innerHTML = `
+                <label>Comprimento (m):</label>
+                <input type="text" inputmode="decimal" placeholder="Comprimento (use vírgula como decimal)" oninput="calculateLaje('${lajeId}')">
+                <label>Largura (m):</label>
+                <input type="text" inputmode="decimal" placeholder="Largura (use vírgula como decimal)" oninput="calculateLaje('${lajeId}')">
+                <label>Altura (m):</label>
+                <input type="text" inputmode="decimal" placeholder="Altura (use vírgula como decimal)" oninput="calculateLaje('${lajeId}')">
+                <label>Incremento (%):</label>
+                <select onchange="calculateLaje('${lajeId}')">
+                    ${Array.from({ length: 21 }, (_, i) => `<option value="${i * 5}">${i * 5}%</option>`).join('')}
+                </select>
+                <div class="result" id="${lajeId}-result">Volume: 0.00 m³</div>
+            `;
+            container.appendChild(lajeDiv);
+        }
+
+        function addViga() {
+            const container = document.getElementById('vigas-container');
+            const vigaId = `viga-${container.children.length + 1}`;
+            const vigaDiv = document.createElement('div');
+            vigaDiv.classList.add('input-group');
+            vigaDiv.id = vigaId;
+            vigaDiv.innerHTML = `
+                <label>Largura (m):</label>
+                <input type="text" inputmode="decimal" placeholder="Largura (use vírgula como decimal)" oninput="calculateViga('${vigaId}')">
+                <label>Altura (m):</label>
+                <input type="text" inputmode="decimal" placeholder="Altura (use vírgula como decimal)" oninput="calculateViga('${vigaId}')">
+                <label>Comprimentos (m):</label>
+                <textarea inputmode="numeric" placeholder="Insira os comprimentos separados por espaço" oninput="calculateViga('${vigaId}')"></textarea>
+                <div class="result" id="${vigaId}-result">Volume: 0.00 m³</div>
+            `;
+            container.appendChild(vigaDiv);
+        }
+
+        function calculateLaje(id) {
+            const laje = document.getElementById(id);
+            const comprimento = parseDecimal(laje.querySelector('input:nth-child(2)').value) || 0;
+            const largura = parseDecimal(laje.querySelector('input:nth-child(4)').value) || 0;
+            const altura = parseDecimal(laje.querySelector('input:nth-child(6)').value) || 0;
+            const incremento = parseFloat(laje.querySelector('select').value) / 100 || 0;
+
+            const volume = comprimento * largura * altura * (1 + incremento);
+            updateResult(id, volume);
+        }
+
+        function calculateViga(id) {
+            const viga = document.getElementById(id);
+            const largura = parseDecimal(viga.querySelector('input:nth-child(2)').value) || 0;
+            const altura = parseDecimal(viga.querySelector('input:nth-child(4)').value) || 0;
+            const comprimentos = viga.querySelector('textarea').value
+                .split(' ')
+                .map(v => parseDecimal(v.trim()))
+                .filter(v => !isNaN(v));
+
+            const volume = comprimentos.reduce((sum, comprimento) => sum + largura * altura * comprimento, 0);
+            updateResult(id, volume);
+        }
+
+        function parseDecimal(value) {
+            return parseFloat(value.replace(',', '.'));
+        }
+
+        function updateResult(id, volume) {
+            document.getElementById(`${id}-result`).innerText = `Volume: ${volume.toFixed(2)} m³`;
+            updateTotalVolume();
+        }
+
+        function updateTotalVolume() {
+            const results = document.querySelectorAll('.result');
+            totalVolume = Array.from(results)
+                .filter(r => r.id.includes('-result'))
+                .reduce((sum, r) => {
+                    const text = r.innerText.match(/Volume: ([0-9.]+) m³/);
+                    return sum + (text ? parseFloat(text[1]) : 0);
+                }, 0);
+            document.getElementById('total-volume').innerText = `Volume Total: ${totalVolume.toFixed(2)} m³`;
+        }
+
+        function copyMemory() {
+            const nomeObra = document.getElementById('nome-obra').value || "Não informado";
+            const fckConcreto = document.getElementById('fck-concreto').value || "Não informado";
+            const lajes = document.querySelectorAll('#lajes-container .input-group');
+            const vigas = document.querySelectorAll('#vigas-container .input-group');
+
+            let totalVolume = document.getElementById('total-volume').innerText.split(": ")[1];
+
+            let memory = `Nome da Obra: ${nomeObra}\nResistência do Concreto (Fck): ${fckConcreto} MPa\nVolume Total: ${totalVolume}\n\n`;
+
+            lajes.forEach((laje, index) => {
+                const comprimento = laje.querySelector('input:nth-child(2)').value || "0";
+                const largura = laje.querySelector('input:nth-child(4)').value || "0";
+                const altura = laje.querySelector('input:nth-child(6)').value || "0";
+                const incremento = laje.querySelector('select').value || "0";
+                const volume = laje.querySelector('.result').innerText.split(": ")[1];
+                memory += `Laje ${index + 1}: ${comprimento} x ${largura} x ${altura} + ${incremento}% = ${volume}\n`;
+            });
+
+            memory += `\n`;
+
+            const vigaConjuntos = {};
+            vigas.forEach((viga) => {
+                const largura = viga.querySelector('input:nth-child(2)').value || "0";
+                const altura = viga.querySelector('input:nth-child(4)').value || "0";
+                const comprimentos = viga.querySelector('textarea').value
+                    .split(' ')
+                    .map(v => v.trim())
+                    .join(" + ");
+                const volume = viga.querySelector('.result').innerText.split(": ")[1];
+                const key = `${largura} x ${altura}`;
+                if (!vigaConjuntos[key]) {
+                    vigaConjuntos[key] = [];
+                }
+                vigaConjuntos[key].push(`(${comprimentos}) = ${volume}`);
+            });
+
+            Object.keys(vigaConjuntos).forEach(key => {
+                const detalhes = vigaConjuntos[key].join(" ");
+                memory += `Viga(s) ${key}: ${detalhes}\n`;
+            });
+
+            const textarea = document.createElement('textarea');
+            textarea.value = memory;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            alert('Memória de cálculo copiada para a área de transferência!');
+        }
+    </script>
+
+</body>
+</html>
